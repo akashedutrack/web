@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Temperature Monitor Dashboard</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --ok: #22c55e;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --offline: #475569;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 32px 16px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 1.4rem; margin-bottom: 4px; }
+  .sub { color: var(--muted); margin-top: 0; margin-bottom: 24px; font-size: 0.9rem; }
+
+  .alert {
+    display: none;
+    background: var(--danger);
+    color: white;
+    padding: 14px 18px;
+    border-radius: 10px;
+    font-weight: 600;
+    margin-bottom: 20px;
+  }
+  .alert.show { display: block; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+  }
+  .card {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 18px 20px;
+    border: 1px solid #334155;
+  }
+  .card h2 {
+    margin: 0 0 12px 0;
+    font-size: 1.05rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--offline);
+    display: inline-block;
+  }
+  .dot.online { background: var(--ok); }
+  .dot.online.high { background: var(--danger); }
+
+  .row { display: flex; justify-content: space-between; padding: 6px 0; color: var(--muted); font-size: 0.9rem; }
+  .row span:last-child { color: var(--text); font-weight: 600; }
+
+  .empty { color: var(--muted); font-size: 0.9rem; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🌡️ Temperature Monitor</h1>
+    <p class="sub">Live status from ESP32 boards</p>
+
+    <div id="alert" class="alert">⚠️ High temperature on BOTH boards</div>
+
+    <div id="grid" class="grid">
+      <p class="empty">Waiting for data from boards…</p>
+    </div>
+  </div>
+
+<script>
+async function refresh() {
+  try {
+    const res = await fetch("/api/status");
+    const data = await res.json();
+
+    const alertBox = document.getElementById("alert");
+    alertBox.classList.toggle("show", data.bothHigh);
+
+    const grid = document.getElementById("grid");
+
+    if (!data.devices || data.devices.length === 0) {
+      grid.innerHTML = '<p class="empty">Waiting for data from boards…</p>';
+      return;
+    }
+
+    grid.innerHTML = data.devices.map(d => {
+      const dotClass = d.online ? (d.is_high ? "dot online high" : "dot online") : "dot";
+      const statusText = d.online ? (d.is_high ? "High" : "Normal") : "Offline";
+      return `
+        <div class="card">
+          <h2><span class="${dotClass}"></span> Board ${d.deviceId} — ${statusText}</h2>
+          <div class="row"><span>Temperature</span><span>${d.temperature.toFixed(1)} &deg;C</span></div>
+          <div class="row"><span>Humidity</span><span>${d.humidity.toFixed(1)} %</span></div>
+        </div>
+      `;
+    }).join("");
+  } catch (err) {
+    console.error("Failed to fetch status", err);
+  }
+}
+
+refresh();
+setInterval(refresh, 2000);
+</script>
+</body>
+</html>
